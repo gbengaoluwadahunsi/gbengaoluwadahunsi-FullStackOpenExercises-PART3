@@ -17,6 +17,9 @@ const PORT = process.env.PORT || 3005;
 
 app.use(express.json());
 
+//use the front end  build file as  index html in the backend server so that the frontend and the backend  are on the same  url
+app.use(express.static("dist"));
+
 let notes = [
   {
     id: 1,
@@ -83,6 +86,5 @@ app.delete("/api/notes/:id", (request, response) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
+  console.log(`Server running on port ${PORT}`);
 });
-
