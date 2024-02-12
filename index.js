@@ -60,18 +60,22 @@ app.get('/api/notes/:id', (request, response, next) => {
     .catch(error => next(error))
 })
 
+//Error handling function
+
 const errorHandler = (error, request, response, next) => {
   console.error(error.message)
 
   if (error.name === 'CastError') {
     return response.status(400).send({ error: 'malformatted id' })
-  } 
+
+  } else if (error.name === 'ValidationError') {
+    return response.status(400).json({ error: error.message })
+  }
 
   next(error)
 }
 
-// this has to be the last loaded middleware.
-app.use(errorHandler)
+
 
 //post a new note
 
@@ -103,7 +107,8 @@ app.post("/api/notes", (request, response) => {
 
   note.save().then((savedNote) => {
     response.json(savedNote);
-  });
+  })
+  .catch(error => next(error))
 });
 
 //delete a note
@@ -132,8 +137,15 @@ app.put('/api/notes/:id', (request, response, next) => {
     .catch(error => next(error))
 })
 
+// this has to be the last loaded middleware.
+app.use(errorHandler)
+
+
+
 
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+
