@@ -4,6 +4,8 @@ const express = require("express");
 var morgan = require("morgan");
 const app = express();
 const cors = require("cors");
+require("dotenv").config();
+const Note = require("./models/note");
 
 app.use(cors());
 
@@ -15,10 +17,11 @@ app.use(morgan(":id :method :url :response-time"));
 
 const PORT = process.env.PORT || 3005;
 
-app.use(express.json());
-
 //use the front end  build file as  index html in the backend server so that the frontend and the backend  are on the same  url
 app.use(express.static("dist"));
+app.use(express.json());
+
+
 
 let notes = [
   {
@@ -38,20 +41,39 @@ app.get("/", (request, response) => {
 });
 
 app.get("/api/notes", (request, response) => {
-  response.json(notes);
+  Note.find({}).then((notes) => {
+    response.json(notes);
+  });
 });
 
-app.get("/api/notes/:id", (request, response) => {
-  const id = Number(request.params.id);
-  console.log(id);
-  const note = notes.find((note) => note.id === id);
+//get  individual note
+app.get('/api/notes/:id', (request, response, next) => {
+  Note.findById(request.params.id)
+    .then(note => {
+      if (note) {
+        response.json(note)
+      } else {
+        response.status(404).end()
+      }
+    })
 
-  if (note) {
-    response.json(note);
-  } else {
-    response.status(404).end();
-  }
-});
+    .catch(error => next(error))
+})
+
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message)
+
+  if (error.name === 'CastError') {
+    return response.status(400).send({ error: 'malformatted id' })
+  } 
+
+  next(error)
+}
+
+// this has to be the last loaded middleware.
+app.use(errorHandler)
+
+//post a new note
 
 //check if name already exists
 const content = "body.content";
@@ -61,29 +83,56 @@ let find_content = notes.find(
 
 app.post("/api/notes", (request, response) => {
   const body = request.body;
-  if (!body.content) {
+
+  if (body.content === undefined) {
     return response.status(400).json({
-      error: "note missing",
+      error: "content missing",
     });
   }
 
-  const note = {
-    id: Math.floor(300 * Math.random()),
+  if (body.content === content) {
+    return response.status(400).json({
+      error: "content already exists",
+    });
+  }
+
+  const note = new Note({
     content: body.content,
-    important: true,
-  };
+    important: body.important || false,
+  });
 
-  notes = notes.concat(note);
-  console.log(note);
-  response.json(note);
+  note.save().then((savedNote) => {
+    response.json(savedNote);
+  });
 });
 
-app.delete("/api/notes/:id", (request, response) => {
-  const id = Number(request.params.id);
-  notes = notes.filter((note) => note.id !== id);
+//delete a note
 
-  response.status(204).end();
-});
+app.delete('/api/notes/:id', (request, response, next) => {
+  Note.findByIdAndDelete(request.params.id)
+    .then(result => {
+      response.status(204).end()
+    })
+    .catch(error => next(error))
+})
+
+//toggle  a note importance
+app.put('/api/notes/:id', (request, response, next) => {
+  const body = request.body
+
+  const note = {
+    content: body.content,
+    important: body.important,
+  }
+
+  Note.findByIdAndUpdate(request.params.id, note, { new: true })
+    .then(updatedNote => {
+      response.json(updatedNote)
+    })
+    .catch(error => next(error))
+})
+
+
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
